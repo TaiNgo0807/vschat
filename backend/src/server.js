@@ -27,5 +27,5 @@ app.set("io", io);
 initChatSocket(io);
 
 server.listen(PORT, () => {
-  console.log(`VSChat backend running on http://localhost:${PORT}`);
+  console.log(`VSChat backend running on${PORT}`);
 });

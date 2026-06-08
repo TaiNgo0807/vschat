@@ -1,0 +1,58 @@
+import express from "express";
+import cors from "cors";
+import cookieParser from "cookie-parser";
+
+import authRoutes from "./routes/auth.routes.js";
+import userRoutes from "./routes/user.routes.js";
+import messageRoutes from "./routes/message.routes.js";
+
+const app = express();
+
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  process.env.CLIENT_URL,
+];
+
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Cho phép request không có origin như Postman
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    return callback(new Error(`CORS blocked: ${origin}`));
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+};
+
+app.use(cors(corsOptions));
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
+
+app.get("/", (req, res) => {
+  res.json({ message: "VSChat API is running" });
+});
+
+app.use("/api/auth", authRoutes);
+app.use("/api/users", userRoutes);
+app.use("/api/messages", messageRoutes);
+
+app.use((req, res) => {
+  res.status(404).json({ message: "API không tồn tại" });
+});
+
+app.use((err, req, res, next) => {
+  console.error(err.message);
+  res.status(400).json({
+    message: err.message || "Request không hợp lệ",
+  });
+});
+
+export default app;

@@ -1,0 +1,29 @@
+{
+  "name": "vschat-backend",
+  "version": "1.0.0",
+  "description": "VSChat realtime chat app backend",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "dev": "nodemon src/server.js",
+    "start": "node src/server.js"
+  },
+  "author": "Ngo Van Tai",
+  "license": "ISC",
+  "dependencies": {
+    "bcryptjs": "latest",
+    "cloudinary": "latest",
+    "cookie-parser": "latest",
+    "cors": "latest",
+    "dotenv": "latest",
+    "express": "latest",
+    "jsonwebtoken": "latest",
+    "mongoose": "latest",
+    "multer": "latest",
+    "socket.io": "latest",
+    "streamifier": "latest"
+  },
+  "devDependencies": {
+    "nodemon": "latest"
+  }
+}

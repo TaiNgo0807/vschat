@@ -1,0 +1,11 @@
+services:
+  mongo:
+    image: mongo:7.0.34-jammy
+    container_name: vschat
+    ports:
+      - "27017:27017"
+    volumes:
+      - vschat_mongo_data:/data/db
+
+volumes:
+  vschat_mongo_data:

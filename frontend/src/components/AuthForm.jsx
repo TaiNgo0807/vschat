@@ -2,12 +2,10 @@ import { useState } from "react";
 import { useAuth } from "../context/AuthContext";
 
 export default function AuthForm() {
-  const { login, register, loading } = useAuth();
-  const [isRegister, setIsRegister] = useState(false);
+  const { login, loading } = useAuth();
   const [error, setError] = useState("");
   const [form, setForm] = useState({
     username: "",
-    displayName: "",
     password: "",
   });
 
@@ -20,11 +18,10 @@ export default function AuthForm() {
     setError("");
 
     try {
-      if (isRegister) {
-        await register(form);
-      } else {
-        await login({ username: form.username, password: form.password });
-      }
+      await login({
+        username: form.username,
+        password: form.password,
+      });
     } catch (error) {
       setError(error.message);
     }
@@ -34,9 +31,7 @@ export default function AuthForm() {
     <main className="auth-page">
       <form className="auth-card" onSubmit={handleSubmit}>
         <h1>VSChat</h1>
-        <p className="auth-subtitle">
-          {isRegister ? "Tạo tài khoản mới" : "Đăng nhập để vào phòng chat"}
-        </p>
+        <p className="auth-subtitle">Đăng nhập tài khoản công ty</p>
 
         {error && <div className="error-box">{error}</div>}
 
@@ -48,37 +43,18 @@ export default function AuthForm() {
           placeholder="VD: ngotai"
         />
 
-        {isRegister && (
-          <>
-            <label>Tên hiển thị</label>
-            <input
-              name="displayName"
-              value={form.displayName}
-              onChange={handleChange}
-              placeholder="VD: Ngô Văn Tài"
-            />
-          </>
-        )}
-
         <label>Mật khẩu</label>
         <input
           name="password"
           type="password"
           value={form.password}
           onChange={handleChange}
-          placeholder="Tối thiểu 6 ký tự"
+          placeholder="Nhập mật khẩu"
         />
 
         <button disabled={loading}>
-          {loading ? "Đang xử lý..." : isRegister ? "Đăng ký" : "Đăng nhập"}
+          {loading ? "Đang đăng nhập..." : "Đăng nhập"}
         </button>
-
-        <p className="switch-auth">
-          {isRegister ? "Đã có tài khoản?" : "Chưa có tài khoản?"}{" "}
-          <span onClick={() => setIsRegister(!isRegister)}>
-            {isRegister ? "Đăng nhập" : "Đăng ký"}
-          </span>
-        </p>
       </form>
     </main>
   );

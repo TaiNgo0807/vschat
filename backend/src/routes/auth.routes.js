@@ -4,7 +4,10 @@ import { protect } from "../middleware/auth.middleware.js";
 
 const router = express.Router();
 
-router.post("/register", register);
+if (process.env.ALLOW_PUBLIC_REGISTER === "true") {
+  router.post("/register", register);
+}
+
 router.post("/login", login);
 router.get("/me", protect, getMe);
 

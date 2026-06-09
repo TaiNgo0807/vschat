@@ -13,6 +13,7 @@ const allowedOrigins = [
   "http://127.0.0.1:5173",
   process.env.CLIENT_URL,
   "https://vschat-rho.vercel.app",
+  " https://www.vietsangchat.space/",
 ];
 
 const corsOptions = {

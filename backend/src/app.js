@@ -34,6 +34,11 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
+// ---- Health ----
+app.get("/health", (_req, res) =>
+  res.json({ ok: true, uptime: process.uptime() }),
+);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());

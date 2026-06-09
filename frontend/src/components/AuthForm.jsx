@@ -30,7 +30,7 @@ export default function AuthForm() {
   return (
     <main className="auth-page">
       <form className="auth-card" onSubmit={handleSubmit}>
-        <h1>VSChat</h1>
+        <h1>Room chat Việt Sang</h1>
         <p className="auth-subtitle">Đăng nhập tài khoản công ty</p>
 
         {error && <div className="error-box">{error}</div>}
@@ -40,7 +40,7 @@ export default function AuthForm() {
           name="username"
           value={form.username}
           onChange={handleChange}
-          placeholder="VD: ngotai"
+          placeholder="Tài khoản đăng nhập"
         />
 
         <label>Mật khẩu</label>

@@ -1,7 +1,9 @@
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 
-const ROOM_ID = "main-room";
+import Group from "../models/Group.js";
+import { ensureDefaultGroup } from "../utils/ensureDefaultGroup.js";
+
 const onlineUsers = new Map();
 
 function getOnlineUsers() {
@@ -67,27 +69,56 @@ export function initChatSocket(io) {
     }
   });
 
-  io.on("connection", (socket) => {
+  io.on("connection", async (socket) => {
     const userId = socket.user._id.toString();
-    const maxRoomUsers = Number(process.env.MAX_ROOM_USERS || 50);
-    const isAlreadyOnline = onlineUsers.has(userId);
 
-    if (!isAlreadyOnline && onlineUsers.size >= maxRoomUsers) {
-      socket.emit("room:full", {
-        message: `Phòng đã đủ ${maxRoomUsers} người online`,
-      });
-      socket.disconnect(true);
-      return;
+    console.log("Socket connected:", socket.id, socket.user.username);
+
+    socket.join(`user:${userId}`);
+
+    const defaultGroup = await ensureDefaultGroup();
+
+    const groups = await Group.find({
+      $or: [{ _id: defaultGroup._id }, { members: socket.user._id }],
+    }).select("_id");
+
+    for (const group of groups) {
+      socket.join(group._id.toString());
     }
 
-    socket.join(ROOM_ID);
     addOnlineSocket(socket.user, socket.id);
+    io.emit("users:online", getOnlineUsers());
 
-    io.to(ROOM_ID).emit("users:online", getOnlineUsers());
+    socket.on("group:join", async (groupId, callback) => {
+      try {
+        const group = await Group.findById(groupId);
+
+        if (!group) {
+          return callback?.({ ok: false, message: "Không tìm thấy nhóm" });
+        }
+
+        const canJoin =
+          group.isDefault ||
+          group.members.some(
+            (memberId) => memberId.toString() === socket.user._id.toString(),
+          );
+
+        if (!canJoin) {
+          return callback?.({ ok: false, message: "Không có quyền vào nhóm" });
+        }
+
+        socket.join(group._id.toString());
+        return callback?.({ ok: true });
+      } catch (error) {
+        return callback?.({ ok: false, message: error.message });
+      }
+    });
 
     socket.on("disconnect", () => {
+      console.log("Socket disconnected:", socket.id, socket.user.username);
+
       removeOnlineSocket(userId, socket.id);
-      io.to(ROOM_ID).emit("users:online", getOnlineUsers());
+      io.emit("users:online", getOnlineUsers());
     });
   });
 }

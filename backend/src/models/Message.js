@@ -26,11 +26,29 @@ const seenSchema = new mongoose.Schema(
   { _id: false },
 );
 
+const reactionSchema = new mongoose.Schema(
+  {
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+    emoji: {
+      type: String,
+      enum: ["👍", "❤️", "😂", "😮", "😢", "🙏"],
+    },
+    reactedAt: {
+      type: Date,
+      default: Date.now,
+    },
+  },
+  { _id: false },
+);
 const messageSchema = new mongoose.Schema(
   {
-    roomId: {
-      type: String,
-      default: "main-room",
+    group: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Group",
+      required: true,
       index: true,
     },
     sender: {
@@ -48,7 +66,6 @@ const messageSchema = new mongoose.Schema(
       type: fileSchema,
       default: null,
     },
-
     isRevoked: {
       type: Boolean,
       default: false,
@@ -57,9 +74,12 @@ const messageSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
-
     seenBy: {
       type: [seenSchema],
+      default: [],
+    },
+    reactions: {
+      type: [reactionSchema],
       default: [],
     },
   },

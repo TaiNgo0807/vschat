@@ -30,3 +30,20 @@ export async function uploadAvatar(req, res) {
     return res.status(500).json({ message: error.message });
   }
 }
+
+export async function getUsers(req, res) {
+  try {
+    const users = await User.find({
+      _id: { $ne: req.user._id },
+    })
+      .select("username displayName avatarUrl")
+      .sort({ displayName: 1 })
+      .lean();
+
+    return res.json({ users });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+}
+
+// giữ lại hàm uploadAvatar cũ của mày phía dưới

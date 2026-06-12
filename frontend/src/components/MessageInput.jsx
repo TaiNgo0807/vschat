@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { apiRequest } from "../services/api";
 
-export default function MessageInput({ onMessageCreated }) {
+export default function MessageInput({ selectedGroup, onMessageCreated }) {
   const [text, setText] = useState("");
   const [file, setFile] = useState(null);
   const [sending, setSending] = useState(false);
@@ -9,10 +9,16 @@ export default function MessageInput({ onMessageCreated }) {
   async function handleSubmit(e) {
     e.preventDefault();
 
+    if (!selectedGroup?._id) {
+      alert("Chưa chọn nhóm chat");
+      return;
+    }
+
     if (!text.trim() && !file) return;
 
     const formData = new FormData();
     formData.append("text", text.trim());
+    formData.append("groupId", selectedGroup._id);
 
     if (file) {
       formData.append("file", file);
@@ -26,7 +32,6 @@ export default function MessageInput({ onMessageCreated }) {
         data: formData,
       });
 
-      // Quan trọng: tự thêm message vừa gửi lên giao diện
       if (data.message) {
         onMessageCreated(data.message);
       }
@@ -55,10 +60,19 @@ export default function MessageInput({ onMessageCreated }) {
       <input
         value={text}
         onChange={(e) => setText(e.target.value)}
-        placeholder={file ? `Đã chọn: ${file.name}` : "Nhập tin nhắn..."}
+        placeholder={
+          selectedGroup
+            ? file
+              ? `Đã chọn: ${file.name}`
+              : `Nhắn vào ${selectedGroup.name}...`
+            : "Chưa chọn nhóm..."
+        }
+        disabled={!selectedGroup}
       />
 
-      <button disabled={sending}>{sending ? "..." : "Gửi"}</button>
+      <button disabled={sending || !selectedGroup}>
+        {sending ? "..." : "Gửi"}
+      </button>
     </form>
   );
 }

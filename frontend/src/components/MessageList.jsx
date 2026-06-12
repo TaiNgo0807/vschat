@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import api, { apiRequest } from "../services/api";
 
@@ -13,9 +13,21 @@ function hasOtherSeen(message, myUserId) {
   });
 }
 
+function groupReactions(reactions = []) {
+  return reactions.reduce((result, reaction) => {
+    if (!result[reaction.emoji]) {
+      result[reaction.emoji] = [];
+    }
+
+    result[reaction.emoji].push(reaction.user);
+    return result;
+  }, {});
+}
+
 export default function MessageList({ messages, onMessageUpdated }) {
   const { user } = useAuth();
   const bottomRef = useRef(null);
+  const [seenModal, setSeenModal] = useState(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -31,6 +43,32 @@ export default function MessageList({ messages, onMessageUpdated }) {
       });
 
       onMessageUpdated(res.data);
+    } catch (error) {
+      alert(error.message);
+    }
+  }
+
+  async function handleReact(messageId, emoji) {
+    try {
+      const res = await apiRequest(`/api/messages/${messageId}/reactions`, {
+        method: "POST",
+        data: { emoji },
+      });
+
+      onMessageUpdated(res.data);
+    } catch (error) {
+      alert(error.message);
+    }
+  }
+
+  async function openSeenModal(message) {
+    try {
+      const data = await apiRequest(`/api/messages/${message._id}/seen`);
+
+      setSeenModal({
+        message,
+        seenBy: data.seenBy || [],
+      });
     } catch (error) {
       alert(error.message);
     }
@@ -57,7 +95,8 @@ export default function MessageList({ messages, onMessageUpdated }) {
       a.remove();
       window.URL.revokeObjectURL(blobUrl);
     } catch (error) {
-      alert("Không tải được file", error);
+      console.log("Download file error:", error);
+      alert("Không tải được file");
     }
   }
 
@@ -66,6 +105,7 @@ export default function MessageList({ messages, onMessageUpdated }) {
       {messages.map((message) => {
         const isMine = message.sender?._id === user?._id;
         const seen = hasOtherSeen(message, user?._id);
+        const reactionGroups = groupReactions(message.reactions || []);
 
         return (
           <div
@@ -124,6 +164,34 @@ export default function MessageList({ messages, onMessageUpdated }) {
                       )}
                     </div>
                   )}
+
+                  <div className="reaction-picker">
+                    {["👍", "❤️", "😂", "😮", "😢", "🙏"].map((emoji) => (
+                      <button
+                        type="button"
+                        key={emoji}
+                        onClick={() => handleReact(message._id, emoji)}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+
+                  {message.reactions?.length > 0 && (
+                    <div className="reaction-summary">
+                      {Object.entries(reactionGroups).map(([emoji, users]) => (
+                        <span
+                          key={emoji}
+                          title={users
+                            .map((u) => u?.displayName)
+                            .filter(Boolean)
+                            .join(", ")}
+                        >
+                          {emoji} {users.length}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </>
               )}
 
@@ -136,9 +204,13 @@ export default function MessageList({ messages, onMessageUpdated }) {
                 </small>
 
                 {isMine && !message.isRevoked && (
-                  <small className="message-status">
+                  <button
+                    type="button"
+                    className="seen-btn"
+                    onClick={() => openSeenModal(message)}
+                  >
                     {seen ? "Đã xem" : "Đã gửi"}
-                  </small>
+                  </button>
                 )}
               </div>
 
@@ -157,6 +229,50 @@ export default function MessageList({ messages, onMessageUpdated }) {
       })}
 
       <div ref={bottomRef} />
+
+      {seenModal && (
+        <div className="seen-overlay" onClick={() => setSeenModal(null)}>
+          <div className="seen-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="seen-modal-header">
+              <h3>Người đã xem</h3>
+
+              <button type="button" onClick={() => setSeenModal(null)}>
+                ✕
+              </button>
+            </div>
+
+            {seenModal.seenBy.length === 0 ? (
+              <p>Chưa có ai xem</p>
+            ) : (
+              <div className="seen-user-list">
+                {seenModal.seenBy.map((seen) => (
+                  <div className="seen-user" key={seen.user?._id || seen.user}>
+                    <div className="small-avatar">
+                      {seen.user?.avatarUrl ? (
+                        <img
+                          src={seen.user.avatarUrl}
+                          alt={seen.user.displayName}
+                        />
+                      ) : (
+                        <span>
+                          {seen.user?.displayName?.charAt(0)?.toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+
+                    <div>
+                      <strong>{seen.user?.displayName}</strong>
+                      <small>
+                        {new Date(seen.seenAt).toLocaleString("vi-VN")}
+                      </small>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

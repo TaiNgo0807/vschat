@@ -13,6 +13,7 @@
   "dependencies": {
     "bcryptjs": "latest",
     "cloudinary": "latest",
+    "compression": "^1.8.1",
     "cookie-parser": "latest",
     "cors": "latest",
     "dotenv": "latest",

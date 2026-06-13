@@ -43,6 +43,7 @@ userSchema.methods.toSafeObject = function () {
     createdAt: this.createdAt,
   };
 };
+userSchema.index({ username: 1 });
 
 const User = mongoose.model("User", userSchema);
 export default User;

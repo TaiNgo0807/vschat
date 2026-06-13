@@ -1,12 +1,58 @@
 import { useState } from "react";
 import { apiRequest } from "../services/api";
+import { useAuth } from "../context/AuthContext";
 
-export default function MessageInput({ selectedGroup, onMessageCreated }) {
+export default function MessageInput({
+  selectedGroup,
+  onLocalMessage,
+  onMessageConfirmed,
+  onMessageFailed,
+}) {
+  const { user } = useAuth();
+
   const [text, setText] = useState("");
   const [file, setFile] = useState(null);
-  const [sending, setSending] = useState(false);
+  const [uploadingCount, setUploadingCount] = useState(0);
 
-  async function handleSubmit(e) {
+  function createTempId() {
+    return `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  }
+
+  async function sendMessageInBackground({
+    tempId,
+    currentText,
+    currentFile,
+    groupId,
+  }) {
+    const formData = new FormData();
+    formData.append("text", currentText);
+    formData.append("groupId", groupId);
+    formData.append("clientTempId", tempId);
+
+    if (currentFile) {
+      formData.append("file", currentFile);
+    }
+
+    try {
+      setUploadingCount((prev) => prev + 1);
+
+      const data = await apiRequest("/api/messages", {
+        method: "POST",
+        data: formData,
+      });
+
+      if (data.message) {
+        onMessageConfirmed(tempId, data.message);
+      }
+    } catch (error) {
+      onMessageFailed(tempId);
+      alert(error.message);
+    } finally {
+      setUploadingCount((prev) => Math.max(prev - 1, 0));
+    }
+  }
+
+  function handleSubmit(e) {
     e.preventDefault();
 
     if (!selectedGroup?._id) {
@@ -16,34 +62,49 @@ export default function MessageInput({ selectedGroup, onMessageCreated }) {
 
     if (!text.trim() && !file) return;
 
-    const formData = new FormData();
-    formData.append("text", text.trim());
-    formData.append("groupId", selectedGroup._id);
+    const currentText = text.trim();
+    const currentFile = file;
+    const tempId = createTempId();
 
-    if (file) {
-      formData.append("file", file);
+    let localFile = null;
+
+    if (currentFile) {
+      localFile = {
+        url: URL.createObjectURL(currentFile),
+        publicId: "",
+        originalName: currentFile.name,
+        mimeType: currentFile.type || "application/octet-stream",
+        size: currentFile.size,
+        resourceType: currentFile.type?.startsWith("image/") ? "image" : "raw",
+        isLocal: true,
+      };
     }
 
-    try {
-      setSending(true);
+    onLocalMessage({
+      _id: tempId,
+      clientTempId: tempId,
+      group: selectedGroup,
+      sender: user,
+      text: currentText,
+      file: localFile,
+      seenBy: [],
+      reactions: [],
+      isRevoked: false,
+      createdAt: new Date().toISOString(),
+      isSending: true,
+      isFailed: false,
+    });
 
-      const data = await apiRequest("/api/messages", {
-        method: "POST",
-        data: formData,
-      });
+    setText("");
+    setFile(null);
+    e.currentTarget.reset();
 
-      if (data.message) {
-        onMessageCreated(data.message);
-      }
-
-      setText("");
-      setFile(null);
-      e.target.reset();
-    } catch (error) {
-      alert(error.message);
-    } finally {
-      setSending(false);
-    }
+    sendMessageInBackground({
+      tempId,
+      currentText,
+      currentFile,
+      groupId: selectedGroup._id,
+    });
   }
 
   return (
@@ -70,9 +131,13 @@ export default function MessageInput({ selectedGroup, onMessageCreated }) {
         disabled={!selectedGroup}
       />
 
-      <button disabled={sending || !selectedGroup}>
-        {sending ? "..." : "Gửi"}
+      <button type="submit" disabled={!selectedGroup}>
+        Gửi
       </button>
+
+      {uploadingCount > 0 && (
+        <span className="uploading-status">Đang tải {uploadingCount}</span>
+      )}
     </form>
   );
 }

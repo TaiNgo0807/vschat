@@ -1594,3 +1594,29 @@ body {
 .empty-chat p {
   margin: 0;
 }
+.app-loading {
+  position: fixed;
+  inset: 0;
+  z-index: 450;
+  background: rgba(247, 243, 232, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.loading-box {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 22px 28px;
+  box-shadow: 0 18px 45px var(--shadow);
+  text-align: center;
+  color: var(--leaf-dark);
+}
+
+.loading-box span {
+  display: block;
+  margin-top: 6px;
+  color: var(--text-muted);
+  font-size: 14px;
+}

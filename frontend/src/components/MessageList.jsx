@@ -9,7 +9,7 @@ function isImage(mimeType = "") {
 function hasOtherSeen(message, myUserId) {
   return message.seenBy?.some((seen) => {
     const seenUserId = seen.user?._id || seen.user;
-    return seenUserId !== myUserId;
+    return seenUserId && seenUserId !== myUserId;
   });
 }
 
@@ -100,6 +100,45 @@ export default function MessageList({ messages, onMessageUpdated }) {
     }
   }
 
+  function renderFile(message) {
+    const file = message.file;
+    if (!file) return null;
+
+    if (isImage(file.mimeType)) {
+      if (file.isLocal) {
+        return <img src={file.url} alt={file.originalName} />;
+      }
+
+      return (
+        <a href={file.url} target="_blank" rel="noreferrer">
+          <img src={file.url} alt={file.originalName} />
+        </a>
+      );
+    }
+
+    if (file.isLocal) {
+      return (
+        <a
+          href={file.url}
+          download={file.originalName || "vschat-file"}
+          className="file-link-btn"
+        >
+          📎 {file.originalName || "File đang gửi..."}
+        </a>
+      );
+    }
+
+    return (
+      <button
+        type="button"
+        className="file-link-btn"
+        onClick={() => downloadFile(message)}
+      >
+        📎 {file.originalName || "Tải file"}
+      </button>
+    );
+  }
+
   return (
     <div className="message-list">
       {messages.length === 0 && (
@@ -110,10 +149,12 @@ export default function MessageList({ messages, onMessageUpdated }) {
           </div>
         </div>
       )}
+
       {messages.map((message) => {
         const isMine = message.sender?._id === user?._id;
         const seen = hasOtherSeen(message, user?._id);
         const reactionGroups = groupReactions(message.reactions || []);
+        const isTemp = message.isSending || message.isFailed;
 
         return (
           <div
@@ -135,7 +176,9 @@ export default function MessageList({ messages, onMessageUpdated }) {
               </div>
             )}
 
-            <div className="message-bubble">
+            <div
+              className={`message-bubble ${message.isFailed ? "failed" : ""}`}
+            >
               {!isMine && (
                 <strong className="sender-name">
                   {message.sender?.displayName}
@@ -149,41 +192,22 @@ export default function MessageList({ messages, onMessageUpdated }) {
                   {message.text && <p>{message.text}</p>}
 
                   {message.file && (
-                    <div className="file-message">
-                      {isImage(message.file.mimeType) ? (
-                        <a
-                          href={message.file.url}
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          <img
-                            src={message.file.url}
-                            alt={message.file.originalName}
-                          />
-                        </a>
-                      ) : (
-                        <button
-                          type="button"
-                          className="file-link-btn"
-                          onClick={() => downloadFile(message)}
-                        >
-                          📎 {message.file.originalName || "Tải file"}
-                        </button>
-                      )}
-                    </div>
+                    <div className="file-message">{renderFile(message)}</div>
                   )}
 
-                  <div className="reaction-picker">
-                    {["👍", "❤️", "😂", "😮", "😢", "🙏"].map((emoji) => (
-                      <button
-                        type="button"
-                        key={emoji}
-                        onClick={() => handleReact(message._id, emoji)}
-                      >
-                        {emoji}
-                      </button>
-                    ))}
-                  </div>
+                  {!isTemp && (
+                    <div className="reaction-picker">
+                      {["👍", "❤️", "😂", "😮", "😢", "🙏"].map((emoji) => (
+                        <button
+                          type="button"
+                          key={emoji}
+                          onClick={() => handleReact(message._id, emoji)}
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                    </div>
+                  )}
 
                   {message.reactions?.length > 0 && (
                     <div className="reaction-summary">
@@ -205,13 +229,20 @@ export default function MessageList({ messages, onMessageUpdated }) {
 
               <div className="message-footer">
                 <small>
-                  {new Date(message.createdAt).toLocaleTimeString("vi-VN", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
+                  {message.isFailed
+                    ? "Gửi thất bại"
+                    : message.isSending
+                      ? "Đang gửi..."
+                      : new Date(message.createdAt).toLocaleTimeString(
+                          "vi-VN",
+                          {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          },
+                        )}
                 </small>
 
-                {isMine && !message.isRevoked && (
+                {isMine && !message.isRevoked && !isTemp && (
                   <button
                     type="button"
                     className="seen-btn"
@@ -222,7 +253,7 @@ export default function MessageList({ messages, onMessageUpdated }) {
                 )}
               </div>
 
-              {isMine && !message.isRevoked && (
+              {isMine && !message.isRevoked && !isTemp && (
                 <button
                   type="button"
                   className="revoke-btn"

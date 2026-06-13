@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
+import compression from "compression";
 
 import authRoutes from "./routes/auth.routes.js";
 import userRoutes from "./routes/user.routes.js";
@@ -8,6 +9,7 @@ import messageRoutes from "./routes/message.routes.js";
 import groupRoutes from "./routes/group.routes.js";
 
 const app = express();
+app.use(compression());
 
 const allowedOrigins = [
   "http://localhost:5173",

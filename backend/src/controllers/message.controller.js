@@ -63,6 +63,7 @@ export async function createMessage(req, res) {
   try {
     const text = req.body.text?.trim() || "";
     const groupId = req.body.groupId;
+    const clientTempId = req.body.clientTempId || "";
 
     const group = await getAccessibleGroup(groupId, req.user._id);
 
@@ -92,6 +93,7 @@ export async function createMessage(req, res) {
     const message = await Message.create({
       group: group._id,
       sender: req.user._id,
+      clientTempId,
       text,
       file: fileData,
     });

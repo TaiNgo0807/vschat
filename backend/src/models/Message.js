@@ -82,9 +82,17 @@ const messageSchema = new mongoose.Schema(
       type: [reactionSchema],
       default: [],
     },
+    clientTempId: {
+      type: String,
+      default: "",
+    },
   },
   { timestamps: true },
 );
+
+messageSchema.index({ group: 1, createdAt: -1 });
+messageSchema.index({ sender: 1, createdAt: -1 });
+messageSchema.index({ "seenBy.user": 1 });
 
 const Message = mongoose.model("Message", messageSchema);
 export default Message;

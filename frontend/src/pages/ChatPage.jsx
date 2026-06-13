@@ -6,6 +6,7 @@ import MessageList from "../components/MessageList";
 import MessageInput from "../components/MessageInput";
 import GroupSidebar from "../components/GroupSidebar";
 import WelcomeGuide from "../components/WelcomeGuide";
+import MediaPanel from "../components/MediaPanel";
 
 import { useAuth } from "../context/AuthContext";
 import { apiRequest } from "../services/api";
@@ -22,14 +23,74 @@ export default function ChatPage() {
   const [users, setUsers] = useState([]);
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [showGuide, setShowGuide] = useState(true);
+  const [mediaOpen, setMediaOpen] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
 
   const socketRef = useRef(null);
   const selectedGroupRef = useRef(null);
+  const seenTimerRef = useRef(null);
+
+  function addLocalMessage(tempMessage) {
+    setMessages((prev) => [...prev, tempMessage]);
+  }
+
+  function replaceTempMessage(tempId, realMessage) {
+    setMessages((prev) => {
+      let replaced = false;
+
+      const next = prev.map((item) => {
+        if (
+          item._id === tempId ||
+          item.clientTempId === tempId ||
+          item._id === realMessage._id
+        ) {
+          replaced = true;
+          return realMessage;
+        }
+
+        return item;
+      });
+
+      if (!replaced) {
+        next.push(realMessage);
+      }
+
+      return next.filter((item, index, arr) => {
+        return arr.findIndex((x) => x._id === item._id) === index;
+      });
+    });
+  }
+
+  function markTempMessageFailed(tempId) {
+    setMessages((prev) =>
+      prev.map((item) =>
+        item._id === tempId || item.clientTempId === tempId
+          ? { ...item, isSending: false, isFailed: true }
+          : item,
+      ),
+    );
+  }
 
   function addMessage(newMessage) {
     setMessages((prev) => {
-      const existed = prev.some((item) => item._id === newMessage._id);
-      if (existed) return prev;
+      const existedById = prev.some((item) => item._id === newMessage._id);
+      if (existedById) return prev;
+
+      const clientTempId = newMessage.clientTempId;
+
+      if (clientTempId) {
+        const tempIndex = prev.findIndex(
+          (item) =>
+            item._id === clientTempId || item.clientTempId === clientTempId,
+        );
+
+        if (tempIndex !== -1) {
+          const next = [...prev];
+          next[tempIndex] = newMessage;
+          return next;
+        }
+      }
+
       return [...prev, newMessage];
     });
   }
@@ -85,39 +146,71 @@ export default function ChatPage() {
 
         return !isMine && !isRevoked && !alreadySeen;
       })
-      .map((message) => message._id);
+      .map((message) => message._id)
+      .filter((id) => !String(id).startsWith("temp-"));
 
     if (unseenMessageIds.length === 0) return;
 
-    try {
-      await apiRequest("/api/messages/seen", {
-        method: "POST",
-        data: {
-          messageIds: unseenMessageIds,
-        },
-      });
-    } catch (error) {
-      console.log("Mark seen error:", error.message);
-    }
+    clearTimeout(seenTimerRef.current);
+
+    seenTimerRef.current = setTimeout(async () => {
+      try {
+        await apiRequest("/api/messages/seen", {
+          method: "POST",
+          data: {
+            messageIds: unseenMessageIds,
+          },
+        });
+      } catch (error) {
+        console.log("Mark seen error:", error.message);
+      }
+    }, 800);
   }
 
   useEffect(() => {
     async function loadGroupsAndUsers() {
       try {
-        const groupData = await apiRequest("/api/groups");
-        const userData = await apiRequest("/api/users");
+        const cachedGroups = localStorage.getItem("vschat_groups");
+        const cachedUsers = localStorage.getItem("vschat_users");
+
+        if (cachedGroups) {
+          const parsedGroups = JSON.parse(cachedGroups);
+          setGroups(parsedGroups);
+
+          if (parsedGroups.length > 0) {
+            setSelectedGroup(parsedGroups[0]);
+            selectedGroupRef.current = parsedGroups[0];
+          }
+        }
+
+        if (cachedUsers) {
+          setUsers(JSON.parse(cachedUsers));
+        }
+
+        setInitialLoading(!cachedGroups);
+
+        const [groupData, userData] = await Promise.all([
+          apiRequest("/api/groups"),
+          apiRequest("/api/users"),
+        ]);
 
         const loadedGroups = groupData.groups || [];
+        const loadedUsers = userData.users || [];
 
         setGroups(loadedGroups);
-        setUsers(userData.users || []);
+        setUsers(loadedUsers);
 
-        if (loadedGroups.length > 0) {
+        localStorage.setItem("vschat_groups", JSON.stringify(loadedGroups));
+        localStorage.setItem("vschat_users", JSON.stringify(loadedUsers));
+
+        if (!selectedGroupRef.current && loadedGroups.length > 0) {
           setSelectedGroup(loadedGroups[0]);
           selectedGroupRef.current = loadedGroups[0];
         }
       } catch (error) {
         alert(error.message);
+      } finally {
+        setInitialLoading(false);
       }
     }
 
@@ -130,7 +223,7 @@ export default function ChatPage() {
 
       try {
         const data = await apiRequest(
-          `/api/messages?limit=50&groupId=${selectedGroup._id}`,
+          `/api/messages?limit=30&groupId=${selectedGroup._id}`,
         );
 
         setMessages(data.messages || []);
@@ -205,7 +298,14 @@ export default function ChatPage() {
     });
 
     socket.on("messages:seen", (data) => {
-      updateSeenMessages(data.messages || []);
+      const currentGroupId = selectedGroupRef.current?._id;
+
+      const messagesInCurrentGroup = (data.messages || []).filter((message) => {
+        const messageGroupId = message.group?._id || message.group;
+        return messageGroupId === currentGroupId;
+      });
+
+      updateSeenMessages(messagesInCurrentGroup);
     });
 
     return () => {
@@ -219,6 +319,8 @@ export default function ChatPage() {
       socket.off("messages:seen");
       socket.off("message:reaction");
 
+      clearTimeout(seenTimerRef.current);
+
       socket.disconnect();
       socketRef.current = null;
     };
@@ -227,6 +329,14 @@ export default function ChatPage() {
   return (
     <div className="chat-page">
       <Navbar />
+      {initialLoading && (
+        <div className="app-loading">
+          <div className="loading-box">
+            <strong>Đang tải VSChat...</strong>
+            <span>Vui lòng chờ vài giây</span>
+          </div>
+        </div>
+      )}
 
       {socketError && <div className="socket-error">{socketError}</div>}
 
@@ -281,18 +391,29 @@ export default function ChatPage() {
         <main className="chat-panel full-chat-panel">
           <div className="chat-toolbar">
             <div>
-              <strong>{selectedGroup?.name || "Chưa chọn nhóm"}</strong>
+              <strong>{selectedGroup?.name || "Đang tải nhóm..."}</strong>
               <small>Online: {onlineUsers.length}/50</small>
             </div>
+
+            <button type="button" onClick={() => setMediaOpen(true)}>
+              Ảnh/File
+            </button>
           </div>
 
           <MessageList messages={messages} onMessageUpdated={updateMessage} />
 
           <MessageInput
             selectedGroup={selectedGroup}
-            onMessageCreated={addMessage}
+            onLocalMessage={addLocalMessage}
+            onMessageConfirmed={replaceTempMessage}
+            onMessageFailed={markTempMessageFailed}
           />
         </main>
+        <MediaPanel
+          selectedGroup={selectedGroup}
+          open={mediaOpen}
+          onClose={() => setMediaOpen(false)}
+        />
       </section>
       {showGuide && <WelcomeGuide onClose={() => setShowGuide(false)} />}
     </div>

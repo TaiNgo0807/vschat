@@ -102,6 +102,14 @@ export default function MessageList({ messages, onMessageUpdated }) {
 
   return (
     <div className="message-list">
+      {messages.length === 0 && (
+        <div className="empty-chat">
+          <div>
+            <h3>Chưa có tin nhắn</h3>
+            <p>Hãy gửi tin nhắn đầu tiên trong nhóm này.</p>
+          </div>
+        </div>
+      )}
       {messages.map((message) => {
         const isMine = message.sender?._id === user?._id;
         const seen = hasOtherSeen(message, user?._id);

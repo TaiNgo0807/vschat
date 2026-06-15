@@ -11,25 +11,27 @@ export default defineConfig({
 
       manifest: {
         name: "VSChat - Chat nội bộ",
-        short_name: "VSChat",
+        short_name: "Việt Sang Chat",
         description: "Ứng dụng chat nội bộ công ty Việt Sang",
         theme_color: "#1f4d2b",
         background_color: "#f7f3e8",
         display: "standalone",
         orientation: "portrait",
         scope: "/",
-        start_url: "/",
+        start_url: "/?source=pwa",
 
         icons: [
           {
             src: "/icons/icon-192.png",
             sizes: "192x192",
             type: "image/png",
+            purpose: "any",
           },
           {
             src: "/icons/icon-512.png",
             sizes: "512x512",
             type: "image/png",
+            purpose: "any",
           },
           {
             src: "/icons/icon-512-maskable.png",
@@ -43,6 +45,10 @@ export default defineConfig({
       workbox: {
         navigateFallback: "/index.html",
         globPatterns: ["**/*.{js,css,html,ico,png,svg,webp}"],
+      },
+
+      devOptions: {
+        enabled: false,
       },
     }),
   ],

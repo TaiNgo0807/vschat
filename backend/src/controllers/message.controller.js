@@ -2,6 +2,10 @@ import Message from "../models/Message.js";
 import Group from "../models/Group.js";
 import { uploadToCloudinary } from "../utils/uploadToCloudinary.js";
 import { ensureDefaultGroup } from "../utils/ensureDefaultGroup.js";
+import {
+  getPushRecipientsByGroup,
+  sendPushToUsers,
+} from "../services/push.service.js";
 
 async function getAccessibleGroup(groupId, userId) {
   let group;
@@ -67,27 +71,29 @@ export async function createMessage(req, res) {
 
     const group = await getAccessibleGroup(groupId, req.user._id);
 
-    if (!text && !req.file) {
+    const uploadFiles = req.files || [];
+
+    if (!text && uploadFiles.length === 0) {
       return res.status(400).json({ message: "Tin nhắn không được rỗng" });
     }
 
-    let fileData = null;
+    const filesData = [];
 
-    if (req.file) {
+    for (const item of uploadFiles) {
       const result = await uploadToCloudinary(
-        req.file.buffer,
+        item.buffer,
         "vschat/messages",
-        req.file.originalname,
+        item.originalname,
       );
 
-      fileData = {
+      filesData.push({
         url: result.secure_url,
         publicId: result.public_id,
-        originalName: req.file.originalname,
-        mimeType: req.file.mimetype,
-        size: req.file.size,
+        originalName: item.originalname,
+        mimeType: item.mimetype,
+        size: item.size,
         resourceType: result.resource_type,
-      };
+      });
     }
 
     const message = await Message.create({
@@ -95,27 +101,39 @@ export async function createMessage(req, res) {
       sender: req.user._id,
       clientTempId,
       text,
-      file: fileData,
+      files: filesData,
+      file: filesData[0] || null, // giữ compat cho code cũ
     });
 
     const populatedMessage = await Message.findById(message._id)
       .populate("sender", "username displayName avatarUrl")
-      .populate("group", "name isDefault")
+      .populate("group", "name isDefault members")
       .populate("seenBy.user", "username displayName avatarUrl")
       .populate("reactions.user", "username displayName avatarUrl")
       .lean();
 
     const io = req.app.get("io");
-
     io.to(group._id.toString()).emit("message:new", populatedMessage);
+    const recipientIds = await getPushRecipientsByGroup(group, req.user._id);
 
-    return res.status(201).json({
-      message: populatedMessage,
+    const body =
+      populatedMessage.text ||
+      (populatedMessage.files?.length > 0
+        ? `Đã gửi ${populatedMessage.files.length} ảnh/file`
+        : "Có tin nhắn mới");
+
+    sendPushToUsers(recipientIds, {
+      title: `${req.user.displayName || "VSChat"} · ${group.name}`,
+      body,
+      icon: req.user.avatarUrl || "/icons/icon-192.png",
+      url: "/",
+      messageId: populatedMessage._id,
+      groupId: group._id,
     });
+
+    return res.status(201).json({ message: populatedMessage });
   } catch (error) {
-    return res.status(error.statusCode || 500).json({
-      message: error.message,
-    });
+    return res.status(error.statusCode || 500).json({ message: error.message });
   }
 }
 

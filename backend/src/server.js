@@ -23,6 +23,7 @@ const io = new Server(server, {
       process.env.CLIENT_URL,
       "https://vschat-rho.vercel.app",
       " https://www.vietsangchat.space/",
+      "http://localhost:4173",
     ],
     credentials: true,
     methods: ["GET", "POST"],

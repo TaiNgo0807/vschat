@@ -6,12 +6,15 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
+      strategies: "injectManifest",
+      srcDir: "src",
+      filename: "sw.js",
       registerType: "autoUpdate",
       injectRegister: "auto",
 
       manifest: {
         name: "VSChat - Chat nội bộ",
-        short_name: "Việt Sang Chat",
+        short_name: "VSChat",
         description: "Ứng dụng chat nội bộ công ty Việt Sang",
         theme_color: "#1f4d2b",
         background_color: "#f7f3e8",
@@ -19,7 +22,6 @@ export default defineConfig({
         orientation: "portrait",
         scope: "/",
         start_url: "/?source=pwa",
-
         icons: [
           {
             src: "/icons/icon-192.png",
@@ -42,13 +44,8 @@ export default defineConfig({
         ],
       },
 
-      workbox: {
-        navigateFallback: "/index.html",
+      injectManifest: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,webp}"],
-      },
-
-      devOptions: {
-        enabled: false,
       },
     }),
   ],

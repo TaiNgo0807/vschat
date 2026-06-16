@@ -25,6 +25,6 @@ router.post("/:id/reactions", protect, reactMessage);
 router.get("/:id/download", protect, downloadMessageFile);
 router.patch("/:id/revoke", protect, revokeMessage);
 
-router.post("/", protect, upload.single("file"), createMessage);
+router.post("/", protect, upload.array("files", 10), createMessage);
 
 export default router;

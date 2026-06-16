@@ -14,35 +14,21 @@ const fileSchema = new mongoose.Schema(
 
 const seenSchema = new mongoose.Schema(
   {
-    user: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-    },
-    seenAt: {
-      type: Date,
-      default: Date.now,
-    },
+    user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    seenAt: { type: Date, default: Date.now },
   },
   { _id: false },
 );
 
 const reactionSchema = new mongoose.Schema(
   {
-    user: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-    },
-    emoji: {
-      type: String,
-      enum: ["👍", "❤️", "😂", "😮", "😢", "🙏"],
-    },
-    reactedAt: {
-      type: Date,
-      default: Date.now,
-    },
+    user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    emoji: { type: String, enum: ["👍", "❤️", "😂", "😮", "😢", "🙏"] },
+    reactedAt: { type: Date, default: Date.now },
   },
   { _id: false },
 );
+
 const messageSchema = new mongoose.Schema(
   {
     group: {
@@ -56,36 +42,27 @@ const messageSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    clientTempId: {
+      type: String,
+      default: "",
+    },
     text: {
       type: String,
       trim: true,
       maxlength: [2000, "Tin nhắn tối đa 2000 ký tự"],
       default: "",
     },
-    file: {
-      type: fileSchema,
-      default: null,
-    },
-    isRevoked: {
-      type: Boolean,
-      default: false,
-    },
-    revokedAt: {
-      type: Date,
-      default: null,
-    },
-    seenBy: {
-      type: [seenSchema],
-      default: [],
-    },
-    reactions: {
-      type: [reactionSchema],
-      default: [],
-    },
-    clientTempId: {
-      type: String,
-      default: "",
-    },
+
+    // Giữ lại để không lỗi dữ liệu cũ
+    file: { type: fileSchema, default: null },
+
+    // Dữ liệu mới: nhiều ảnh/file trong 1 tin nhắn
+    files: { type: [fileSchema], default: [] },
+
+    isRevoked: { type: Boolean, default: false },
+    revokedAt: { type: Date, default: null },
+    seenBy: { type: [seenSchema], default: [] },
+    reactions: { type: [reactionSchema], default: [] },
   },
   { timestamps: true },
 );

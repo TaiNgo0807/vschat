@@ -7,6 +7,7 @@ import authRoutes from "./routes/auth.routes.js";
 import userRoutes from "./routes/user.routes.js";
 import messageRoutes from "./routes/message.routes.js";
 import groupRoutes from "./routes/group.routes.js";
+import pushRoutes from "./routes/push.routes.js";
 
 const app = express();
 app.use(compression());
@@ -17,6 +18,7 @@ const allowedOrigins = [
   process.env.CLIENT_URL,
   "https://vschat-rho.vercel.app",
   " https://www.vietsangchat.space/",
+  "http://localhost:4173",
 ];
 
 const corsOptions = {
@@ -54,6 +56,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/groups", groupRoutes);
+app.use("/api/push", pushRoutes);
 
 app.use((req, res) => {
   res.status(404).json({ message: "API không tồn tại" });

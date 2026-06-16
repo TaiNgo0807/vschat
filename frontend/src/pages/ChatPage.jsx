@@ -7,6 +7,9 @@ import MessageInput from "../components/MessageInput";
 import GroupSidebar from "../components/GroupSidebar";
 import WelcomeGuide from "../components/WelcomeGuide";
 import MediaPanel from "../components/MediaPanel";
+import NotificationPermissionModal from "../components/NotificationPermissionModal";
+import { showMessageNotification } from "../utils/notification";
+import PushPermissionBox from "../components/PushPermissionBox";
 
 import { useAuth } from "../context/AuthContext";
 import { apiRequest } from "../services/api";
@@ -25,6 +28,10 @@ export default function ChatPage() {
   const [showGuide, setShowGuide] = useState(true);
   const [mediaOpen, setMediaOpen] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
+
+  const [showNotificationModal, setShowNotificationModal] = useState(() => {
+    return Notification.permission !== "granted";
+  });
 
   const socketRef = useRef(null);
   const selectedGroupRef = useRef(null);
@@ -282,9 +289,35 @@ export default function ChatPage() {
       const messageGroupId = message.group?._id || message.group;
       const currentGroupId = selectedGroupRef.current?._id;
 
-      if (messageGroupId === currentGroupId) {
+      const isCurrentGroup = messageGroupId === currentGroupId;
+      const isMine = message.sender?._id === user?._id;
+
+      if (isCurrentGroup) {
         addMessage(message);
         markUnseenMessagesAsSeen([message]);
+      }
+
+      if (!isMine) {
+        const senderName = message.sender?.displayName || "VSChat";
+        const groupName = message.group?.name || "Nhóm chat";
+
+        const body =
+          message.text ||
+          (message.file?.mimeType?.startsWith("image/")
+            ? "Đã gửi một hình ảnh"
+            : message.file
+              ? `Đã gửi file: ${message.file.originalName || "Tệp đính kèm"}`
+              : "Có tin nhắn mới");
+
+        showMessageNotification({
+          title: `${senderName} · ${groupName}`,
+          body,
+          icon: message.sender?.avatarUrl || "/favicon.ico",
+          tag: message._id,
+          onClick: () => {
+            window.focus();
+          },
+        });
       }
     });
 
@@ -399,6 +432,7 @@ export default function ChatPage() {
               Ảnh/File
             </button>
           </div>
+          <PushPermissionBox />
 
           <MessageList messages={messages} onMessageUpdated={updateMessage} />
 
@@ -416,6 +450,11 @@ export default function ChatPage() {
         />
       </section>
       {showGuide && <WelcomeGuide onClose={() => setShowGuide(false)} />}
+      {showNotificationModal && (
+        <NotificationPermissionModal
+          onDone={() => setShowNotificationModal(false)}
+        />
+      )}
     </div>
   );
 }

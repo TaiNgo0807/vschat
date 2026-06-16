@@ -3,6 +3,8 @@ import { apiRequest } from "../services/api";
 import { useAuth } from "../context/AuthContext";
 import { compressImage } from "../utils/compressImage";
 
+const MAX_FILES = 10;
+
 export default function MessageInput({
   selectedGroup,
   onLocalMessage,
@@ -12,61 +14,73 @@ export default function MessageInput({
   const { user } = useAuth();
 
   const [text, setText] = useState("");
-  const [file, setFile] = useState(null);
-  const [fileLabel, setFileLabel] = useState("");
+  const [files, setFiles] = useState([]);
+  const [compressing, setCompressing] = useState(false);
   const [uploadingCount, setUploadingCount] = useState(0);
 
   function createTempId() {
     return `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
   }
 
-  function handleFileChange(e) {
-    const selectedFile = e.target.files?.[0] || null;
+  async function handleFileChange(e) {
+    const selectedFiles = Array.from(e.target.files || []);
 
-    if (!selectedFile) {
-      setFile(null);
-      setFileLabel("");
+    if (selectedFiles.length === 0) {
+      setFiles([]);
       return;
     }
 
-    // Chỉ lưu file, chưa nén ở đây
-    setFile(selectedFile);
-    setFileLabel(selectedFile.name);
+    const limitedFiles = selectedFiles.slice(0, MAX_FILES);
+
+    if (selectedFiles.length > MAX_FILES) {
+      alert(`Chỉ được gửi tối đa ${MAX_FILES} file/lần`);
+    }
+
+    try {
+      setCompressing(true);
+
+      const processedFiles = [];
+
+      for (const item of limitedFiles) {
+        if (item.type?.startsWith("image/")) {
+          const compressedFile = await compressImage(item, {
+            maxWidth: 1280,
+            maxHeight: 1280,
+            quality: 0.72,
+          });
+
+          processedFiles.push(compressedFile);
+        } else {
+          processedFiles.push(item);
+        }
+      }
+
+      setFiles(processedFiles);
+    } catch (error) {
+      console.log("Compress files error:", error);
+      setFiles(limitedFiles);
+    } finally {
+      setCompressing(false);
+    }
   }
 
   async function sendMessageInBackground({
     tempId,
     currentText,
-    currentFile,
+    currentFiles,
     groupId,
   }) {
+    const formData = new FormData();
+    formData.append("text", currentText);
+    formData.append("groupId", groupId);
+    formData.append("clientTempId", tempId);
+
+    currentFiles.forEach((file) => {
+      formData.append("files", file);
+    });
+
     try {
       setUploadingCount((prev) => prev + 1);
-
-      let uploadFile = currentFile;
-
-      // Nén ảnh trong background, không chặn UI
-      if (currentFile && currentFile.type?.startsWith("image/")) {
-        uploadFile = await compressImage(currentFile, {
-          maxWidth: 1280,
-          maxHeight: 1280,
-          quality: 0.72,
-          outputType: "image/jpeg",
-        });
-
-        console.log("Ảnh gốc:", Math.round(currentFile.size / 1024), "KB");
-        console.log("Ảnh sau nén:", Math.round(uploadFile.size / 1024), "KB");
-      }
-
-      const formData = new FormData();
-      formData.append("text", currentText);
-      formData.append("groupId", groupId);
-      formData.append("clientTempId", tempId);
-
-      if (uploadFile) {
-        // Phải khớp với backend: upload.single("file")
-        formData.append("file", uploadFile);
-      }
 
       const data = await apiRequest("/api/messages", {
         method: "POST",
@@ -77,12 +91,23 @@ export default function MessageInput({
         onMessageConfirmed(tempId, data.message);
       }
     } catch (error) {
-      console.log("Send message error:", error);
       onMessageFailed(tempId);
-      alert(error.message || "Gửi tin nhắn thất bại");
+      alert(error.message);
     } finally {
       setUploadingCount((prev) => Math.max(prev - 1, 0));
     }
+  }
+
+  function createLocalFiles(currentFiles) {
+    return currentFiles.map((file) => ({
+      url: URL.createObjectURL(file),
+      publicId: "",
+      originalName: file.name,
+      mimeType: file.type || "application/octet-stream",
+      size: file.size,
+      resourceType: file.type?.startsWith("image/") ? "image" : "raw",
+      isLocal: true,
+    }));
   }
 
   function handleSubmit(e) {
@@ -93,25 +118,17 @@ export default function MessageInput({
       return;
     }
 
-    if (!text.trim() && !file) return;
+    if (compressing) {
+      alert("Ảnh đang được tối ưu, vui lòng đợi một chút.");
+      return;
+    }
 
     const currentText = text.trim();
-    const currentFile = file;
+    const currentFiles = files;
+
+    if (!currentText && currentFiles.length === 0) return;
+
     const tempId = createTempId();
-
-    let localFile = null;
-
-    if (currentFile) {
-      localFile = {
-        url: URL.createObjectURL(currentFile), // hiện ảnh local ngay
-        publicId: "",
-        originalName: currentFile.name,
-        mimeType: currentFile.type || "application/octet-stream",
-        size: currentFile.size,
-        resourceType: currentFile.type?.startsWith("image/") ? "image" : "raw",
-        isLocal: true,
-      };
-    }
 
     onLocalMessage({
       _id: tempId,
@@ -119,7 +136,8 @@ export default function MessageInput({
       group: selectedGroup,
       sender: user,
       text: currentText,
-      file: localFile,
+      file: createLocalFiles(currentFiles)[0] || null,
+      files: createLocalFiles(currentFiles),
       seenBy: [],
       reactions: [],
       isRevoked: false,
@@ -128,43 +146,44 @@ export default function MessageInput({
       isFailed: false,
     });
 
-    // Clear input ngay
     setText("");
-    setFile(null);
-    setFileLabel("");
+    setFiles([]);
     e.currentTarget.reset();
 
-    // Upload chạy nền
     sendMessageInBackground({
       tempId,
       currentText,
-      currentFile,
+      currentFiles,
       groupId: selectedGroup._id,
     });
+  }
+
+  function getPlaceholder() {
+    if (!selectedGroup) return "Chưa chọn nhóm...";
+    if (compressing) return "Đang tự tối ưu ảnh...";
+
+    if (files.length === 1) return `Đã chọn: ${files[0].name}`;
+    if (files.length > 1) return `Đã chọn ${files.length} file`;
+
+    return `Nhắn vào ${selectedGroup.name}...`;
   }
 
   return (
     <form className="message-input" onSubmit={handleSubmit}>
       <label className="file-btn">
         📎
-        <input type="file" hidden onChange={handleFileChange} />
+        <input type="file" hidden multiple onChange={handleFileChange} />
       </label>
 
       <input
         value={text}
         onChange={(e) => setText(e.target.value)}
-        placeholder={
-          selectedGroup
-            ? file
-              ? `Đã chọn: ${fileLabel}`
-              : `Nhắn vào ${selectedGroup.name}...`
-            : "Chưa chọn nhóm..."
-        }
+        placeholder={getPlaceholder()}
         disabled={!selectedGroup}
       />
 
-      <button type="submit" disabled={!selectedGroup}>
-        Gửi
+      <button type="submit" disabled={!selectedGroup || compressing}>
+        {compressing ? "Đợi..." : "Gửi"}
       </button>
 
       {uploadingCount > 0 && (

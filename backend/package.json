@@ -21,8 +21,12 @@
     "jsonwebtoken": "latest",
     "mongoose": "latest",
     "multer": "latest",
-    "socket.io": "latest",
-    "streamifier": "latest"
+    "socket.io": "^4.8.3",
+    "socket.io-adapter": "^2.5.1",
+    "socket.io-client": "^4.2.0",
+    "streamifier": "latest",
+    "web-push": "^3.6.7",
+    "ws": "^8.21.0"
   },
   "devDependencies": {
     "nodemon": "latest"

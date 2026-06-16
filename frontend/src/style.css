@@ -1153,11 +1153,14 @@ body {
 }
 
 .reaction-picker button {
+  display: flex;
   width: 28px;
   height: 28px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.28);
   border: 1px solid rgba(255, 255, 255, 0.25);
+  justify-content: center;
+  align-items: center;
 }
 
 .message-row:not(.mine) .reaction-picker button {

@@ -201,9 +201,11 @@ export default function MessageList({ messages, onMessageUpdated }) {
                         <button
                           type="button"
                           key={emoji}
+                          className="reaction-btn"
                           onClick={() => handleReact(message._id, emoji)}
+                          title={`Thả ${emoji}`}
                         >
-                          {emoji}
+                          <span className="reaction-emoji">{emoji}</span>
                         </button>
                       ))}
                     </div>

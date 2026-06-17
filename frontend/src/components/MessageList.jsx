@@ -170,7 +170,7 @@ export default function MessageList({ messages, onMessageUpdated }) {
     if (isMyLastMessage || isNearBottom()) {
       requestAnimationFrame(() => {
         bottomRef.current?.scrollIntoView({
-          behavior: "smooth",
+          behavior: "auto",
           block: "end",
         });
       });

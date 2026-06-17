@@ -42,28 +42,45 @@ export default function ChatPage() {
   }
 
   function replaceTempMessage(tempId, realMessage) {
+    const confirmedMessage = {
+      ...realMessage,
+      clientTempId: realMessage.clientTempId || tempId,
+      isSending: false,
+      isFailed: false,
+    };
+
     setMessages((prev) => {
       let replaced = false;
 
       const next = prev.map((item) => {
-        if (
-          item._id === tempId ||
-          item.clientTempId === tempId ||
-          item._id === realMessage._id
-        ) {
+        const itemId = String(item._id);
+        const itemTempId = String(item.clientTempId || "");
+        const realId = String(confirmedMessage._id);
+        const realTempId = String(confirmedMessage.clientTempId || "");
+
+        const isSameTemp =
+          itemId === String(tempId) ||
+          itemTempId === String(tempId) ||
+          itemTempId === realTempId;
+
+        const isSameReal = itemId === realId;
+
+        if (isSameTemp || isSameReal) {
           replaced = true;
-          return realMessage;
+          return confirmedMessage;
         }
 
         return item;
       });
 
       if (!replaced) {
-        next.push(realMessage);
+        next.push(confirmedMessage);
       }
 
       return next.filter((item, index, arr) => {
-        return arr.findIndex((x) => x._id === item._id) === index;
+        return (
+          arr.findIndex((x) => String(x._id) === String(item._id)) === index
+        );
       });
     });
   }
@@ -79,26 +96,37 @@ export default function ChatPage() {
   }
 
   function addMessage(newMessage) {
+    const confirmedMessage = {
+      ...newMessage,
+      isSending: false,
+      isFailed: false,
+    };
+
     setMessages((prev) => {
-      const existedById = prev.some((item) => item._id === newMessage._id);
+      const existedById = prev.some(
+        (item) => String(item._id) === String(confirmedMessage._id),
+      );
+
       if (existedById) return prev;
 
-      const clientTempId = newMessage.clientTempId;
+      const clientTempId = confirmedMessage.clientTempId;
 
       if (clientTempId) {
-        const tempIndex = prev.findIndex(
-          (item) =>
-            item._id === clientTempId || item.clientTempId === clientTempId,
-        );
+        const tempIndex = prev.findIndex((item) => {
+          return (
+            String(item._id) === String(clientTempId) ||
+            String(item.clientTempId || "") === String(clientTempId)
+          );
+        });
 
         if (tempIndex !== -1) {
           const next = [...prev];
-          next[tempIndex] = newMessage;
+          next[tempIndex] = confirmedMessage;
           return next;
         }
       }
 
-      return [...prev, newMessage];
+      return [...prev, confirmedMessage];
     });
   }
 

@@ -82,10 +82,14 @@ export default function MessageInput({
     try {
       setUploadingCount((prev) => prev + 1);
 
+      console.time("api-send-message");
+
       const data = await apiRequest("/api/messages", {
         method: "POST",
         data: formData,
       });
+
+      console.timeEnd("api-send-message");
 
       if (data.message) {
         onMessageConfirmed(tempId, data.message);

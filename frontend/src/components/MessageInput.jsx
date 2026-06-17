@@ -129,6 +129,7 @@ export default function MessageInput({
     if (!currentText && currentFiles.length === 0) return;
 
     const tempId = createTempId();
+    console.time("show-local-message");
 
     onLocalMessage({
       _id: tempId,
@@ -145,6 +146,7 @@ export default function MessageInput({
       isSending: true,
       isFailed: false,
     });
+    console.timeEnd("show-local-message");
 
     setText("");
     setFiles([]);

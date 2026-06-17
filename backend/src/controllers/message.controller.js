@@ -77,23 +77,28 @@ export async function createMessage(req, res) {
       return res.status(400).json({ message: "Tin nhắn không được rỗng" });
     }
 
-    const filesData = [];
+    let filesData = [];
 
-    for (const item of uploadFiles) {
-      const result = await uploadToCloudinary(
-        item.buffer,
-        "vschat/messages",
-        item.originalname,
+    // Có file thì upload Cloudinary song song, không upload tuần tự nữa
+    if (uploadFiles.length > 0) {
+      filesData = await Promise.all(
+        uploadFiles.map(async (item) => {
+          const result = await uploadToCloudinary(
+            item.buffer,
+            "vschat/messages",
+            item.originalname,
+          );
+
+          return {
+            url: result.secure_url,
+            publicId: result.public_id,
+            originalName: item.originalname,
+            mimeType: item.mimetype,
+            size: item.size,
+            resourceType: result.resource_type,
+          };
+        }),
       );
-
-      filesData.push({
-        url: result.secure_url,
-        publicId: result.public_id,
-        originalName: item.originalname,
-        mimeType: item.mimetype,
-        size: item.size,
-        resourceType: result.resource_type,
-      });
     }
 
     const message = await Message.create({
@@ -102,36 +107,69 @@ export async function createMessage(req, res) {
       clientTempId,
       text,
       files: filesData,
-      file: filesData[0] || null, // giữ compat cho code cũ
+      file: filesData[0] || null,
+      seenBy: [],
+      reactions: [],
     });
 
-    const populatedMessage = await Message.findById(message._id)
-      .populate("sender", "username displayName avatarUrl")
-      .populate("group", "name isDefault members")
-      .populate("seenBy.user", "username displayName avatarUrl")
-      .populate("reactions.user", "username displayName avatarUrl")
-      .lean();
+    // Không query populate lại nữa, tự build object cho nhanh
+    const populatedMessage = {
+      _id: message._id,
+      group: {
+        _id: group._id,
+        name: group.name,
+        isDefault: group.isDefault,
+      },
+      sender: {
+        _id: req.user._id,
+        username: req.user.username,
+        displayName: req.user.displayName,
+        avatarUrl: req.user.avatarUrl,
+      },
+      clientTempId: message.clientTempId,
+      text: message.text,
+      file: message.file,
+      files: message.files,
+      isRevoked: message.isRevoked,
+      revokedAt: message.revokedAt,
+      seenBy: [],
+      reactions: [],
+      createdAt: message.createdAt,
+      updatedAt: message.updatedAt,
+    };
 
     const io = req.app.get("io");
     io.to(group._id.toString()).emit("message:new", populatedMessage);
-    const recipientIds = await getPushRecipientsByGroup(group, req.user._id);
 
-    const body =
-      populatedMessage.text ||
-      (populatedMessage.files?.length > 0
-        ? `Đã gửi ${populatedMessage.files.length} ảnh/file`
-        : "Có tin nhắn mới");
+    // Trả response trước cho nhanh
+    res.status(201).json({ message: populatedMessage });
 
-    sendPushToUsers(recipientIds, {
-      title: `${req.user.displayName || "VSChat"} · ${group.name}`,
-      body,
-      icon: req.user.avatarUrl || "/icons/icon-192.png",
-      url: "/",
-      messageId: populatedMessage._id,
-      groupId: group._id,
+    // Push notification chạy nền, không làm chậm gửi tin
+    setImmediate(async () => {
+      try {
+        const recipientIds = await getPushRecipientsByGroup(
+          group,
+          req.user._id,
+        );
+
+        const body =
+          populatedMessage.text ||
+          (populatedMessage.files?.length > 0
+            ? `Đã gửi ${populatedMessage.files.length} ảnh/file`
+            : "Có tin nhắn mới");
+
+        await sendPushToUsers(recipientIds, {
+          title: `${req.user.displayName || "VSChat"} · ${group.name}`,
+          body,
+          icon: req.user.avatarUrl || "/icons/icon-192.png",
+          url: "/",
+          messageId: populatedMessage._id,
+          groupId: group._id,
+        });
+      } catch (pushError) {
+        console.log("Push background error:", pushError.message);
+      }
     });
-
-    return res.status(201).json({ message: populatedMessage });
   } catch (error) {
     return res.status(error.statusCode || 500).json({ message: error.message });
   }

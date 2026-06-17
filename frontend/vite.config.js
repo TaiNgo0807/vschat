@@ -5,12 +5,14 @@ import { VitePWA } from "vite-plugin-pwa";
 export default defineConfig({
   plugins: [
     react(),
+
     VitePWA({
       strategies: "injectManifest",
       srcDir: "src",
       filename: "sw.js",
+
       registerType: "autoUpdate",
-      injectRegister: "auto",
+      injectRegister: null,
 
       manifest: {
         name: "VSChat - Chat nội bộ",
@@ -21,7 +23,7 @@ export default defineConfig({
         display: "standalone",
         orientation: "portrait",
         scope: "/",
-        start_url: "/?source=pwa",
+        start_url: "/",
         icons: [
           {
             src: "/icons/icon-192.png",
@@ -46,6 +48,10 @@ export default defineConfig({
 
       injectManifest: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,webp}"],
+      },
+
+      devOptions: {
+        enabled: false,
       },
     }),
   ],

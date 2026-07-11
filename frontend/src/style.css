@@ -696,7 +696,9 @@ button {
 }
 
 .chat-gallery {
-  width: min(620px, 76vw);
+  /* Sửa width thành max-width để khung không bị phình to vô lý */
+  max-width: min(620px, 76vw);
+  width: 100%; /* Có thể dùng fit-content nếu muốn khung tự ôm sát ảnh nhỏ */
   display: grid;
   gap: 4px;
   border-radius: 14px;
@@ -709,17 +711,16 @@ button {
   overflow: hidden;
   background: #f3f4f6;
   cursor: pointer;
-  min-width: 0;
-  border: none;
-  outline: none;
-  padding: 0;
+  width: 100%; /* Thêm dòng này để chắc kèo nó lấp đầy ô lưới */
+  height: 100%;
   display: block;
+  /* (Các thuộc tính cũ giữ nguyên...) */
 }
 
 .chat-img-wrap img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   display: block;
 }
 
@@ -728,7 +729,7 @@ button {
 }
 
 .chat-gallery.gallery-1 .chat-img-wrap {
-  height: 420px;
+  height: auto;
 }
 
 .chat-gallery.gallery-2 {
